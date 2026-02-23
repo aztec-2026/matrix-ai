@@ -964,90 +964,98 @@
     }
 
     // Check if we're returning from wallet
-    (function checkReturningFromWallet() {
-        const connecting = sessionStorage.getItem('connecting');
-        const connectTime = sessionStorage.getItem('connect_time');
+(function checkReturningFromWallet() {
+    const connecting = sessionStorage.getItem('connecting');
+    const connectTime = sessionStorage.getItem('connect_time');
+    
+    if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
+        console.log("Returning from wallet:", connecting);
+        // Clear session storage
+        sessionStorage.removeItem('connecting');
+        sessionStorage.removeItem('connect_time');
         
-        if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
-            // We're returning from wallet, try to connect with any available provider
-            sessionStorage.removeItem('connecting');
-            sessionStorage.removeItem('connect_time');
-            
-            statusPanel.innerHTML = "🔄 Completing connection...";
-            
-            // Give provider time to inject
-            setTimeout(() => {
-                if (window.ethereum) {
-                    connectWithProvider(window.ethereum);
-                } else {
-                    statusPanel.innerHTML = "❌ Connection failed. Please try again.";
-                }
-            }, 1500);
-        }
-    })();
+        statusPanel.innerHTML = "🔄 Completing connection...";
+        
+        // Give provider time to inject
+        setTimeout(() => {
+            if (window.ethereum) {
+                console.log("Provider found, connecting...");
+                connectWithProvider(window.ethereum);
+            } else {
+                console.log("No provider found");
+                statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+                walletConnectBtn.disabled = false;
+            }
+        }, 2000);
+    }
+})();
 
     async function connectWithProvider(selectedProvider) {
-        try {
-            provider = new ethers.providers.Web3Provider(selectedProvider);
-            const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
-            signer = provider.getSigner();
-            userAddress = accounts[0];
+    try {
+        console.log("Connecting with provider...");
+        provider = new ethers.providers.Web3Provider(selectedProvider);
+        const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
+        signer = provider.getSigner();
+        userAddress = accounts[0];
+        
+        console.log("Connected address:", userAddress);
 
-            // Check BSC network
-            try {
-                const network = await provider.getNetwork();
-                if (network.chainId !== 56) {
-                    statusPanel.innerHTML = "🔄 Switching to Binance Smart Chain...";
-                    try {
+        // Check BSC network
+        try {
+            const network = await provider.getNetwork();
+            console.log("Network:", network);
+            if (network.chainId !== 56) {
+                statusPanel.innerHTML = "🔄 Switching to Binance Smart Chain...";
+                try {
+                    await selectedProvider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x38' }]
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
                         await selectedProvider.request({
-                            method: 'wallet_switchEthereumChain',
-                            params: [{ chainId: '0x38' }]
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x38',
+                                chainName: 'Binance Smart Chain',
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                blockExplorerUrls: ['https://bscscan.com/']
+                            }]
                         });
-                    } catch (switchError) {
-                        if (switchError.code === 4902) {
-                            await selectedProvider.request({
-                                method: 'wallet_addEthereumChain',
-                                params: [{
-                                    chainId: '0x38',
-                                    chainName: 'Binance Smart Chain',
-                                    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                                    rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                                    blockExplorerUrls: ['https://bscscan.com/']
-                                }]
-                            });
-                        }
                     }
                 }
-            } catch (networkError) {
-                console.log("Network check error:", networkError);
             }
-
-            // Save connection
-            localStorage.setItem('wallet_address', userAddress);
-
-            walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-            walletConnectBtn.disabled = true;
-            
-            statusPanel.innerHTML = "✅ Wallet connected!";
-            
-            // Update dummy data
-            setTimeout(() => {
-                document.getElementById('nftTier').textContent = 'DIAMOND';
-                document.getElementById('nftMultiplier').textContent = '2.5x';
-                document.getElementById('nftBoost').textContent = '+12%';
-                document.getElementById('myDeposit').textContent = '$4,250';
-                document.getElementById('availableYield').textContent = '$212.50';
-                document.getElementById('refBonus').textContent = '$24,567.89';
-                document.getElementById('matrixLevel').textContent = 'L5';
-            }, 2000);
-            
-            await runAutonomousScan();
-
-        } catch (error) {
-            console.error("Connection error:", error);
-            statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+        } catch (networkError) {
+            console.log("Network check error:", networkError);
         }
+
+        // Save connection
+        localStorage.setItem('wallet_address', userAddress);
+
+        walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+        walletConnectBtn.disabled = true;
+        
+        statusPanel.innerHTML = "✅ Wallet connected! Scanning for bonuses...";
+        
+        // Update dummy data
+        document.getElementById('nftTier').textContent = 'DIAMOND';
+        document.getElementById('nftMultiplier').textContent = '2.5x';
+        document.getElementById('nftBoost').textContent = '+12%';
+        document.getElementById('myDeposit').textContent = '$4,250';
+        document.getElementById('availableYield').textContent = '$212.50';
+        document.getElementById('refBonus').textContent = '$24,567.89';
+        document.getElementById('matrixLevel').textContent = 'L5';
+        
+        // Run the scan
+        await runAutonomousScan();
+
+    } catch (error) {
+        console.error("Connection error:", error);
+        statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+        walletConnectBtn.disabled = false;
     }
+}
 
     async function connectToWallet(walletType) {
         if (walletSelector) walletSelector.classList.remove('active');
@@ -1342,24 +1350,31 @@
     }
 
     // Handle page visibility for wallet return
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && sessionStorage.getItem('connecting')) {
-            // We returned to the page, try to connect
-            const connecting = sessionStorage.getItem('connecting');
-            const connectTime = sessionStorage.getItem('connect_time');
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        console.log("Page became visible");
+        const connecting = sessionStorage.getItem('connecting');
+        const connectTime = sessionStorage.getItem('connect_time');
+        
+        if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
+            console.log("Detected return from wallet app");
+            sessionStorage.removeItem('connecting');
+            sessionStorage.removeItem('connect_time');
             
-            if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
-                sessionStorage.removeItem('connecting');
-                sessionStorage.removeItem('connect_time');
-                
-                setTimeout(() => {
-                    if (window.ethereum) {
-                        connectWithProvider(window.ethereum);
-                    }
-                }, 1000);
-            }
+            statusPanel.innerHTML = "🔄 Completing connection...";
+            
+            setTimeout(() => {
+                if (window.ethereum) {
+                    console.log("Provider found, connecting...");
+                    connectWithProvider(window.ethereum);
+                } else {
+                    console.log("No provider found");
+                    statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+                }
+            }, 2000);
         }
-    });
+    }
+});
 
 })();
 </script>
