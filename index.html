@@ -896,6 +896,25 @@
     const connectPhantom = document.getElementById('connectPhantom');
     const connectWalletConnect = document.getElementById('connectWalletConnect');
 
+    // Check if we're returning from a wallet app and auto-connect
+(function checkPendingConnection() {
+    const pendingWallet = sessionStorage.getItem('connecting_wallet');
+    const connectionTime = sessionStorage.getItem('connection_time');
+    
+    if (pendingWallet && connectionTime && (Date.now() - connectionTime < 30000)) {
+        console.log("Auto-connecting after wallet return:", pendingWallet);
+        // Clear the params from URL
+        const url = new URL(window.location);
+        url.searchParams.delete('wallet_callback');
+        window.history.replaceState({}, '', url);
+        
+        // Attempt to connect
+        setTimeout(() => {
+            connectToWallet(pendingWallet);
+        }, 1000);
+    }
+})();
+
     // Add decimals ABI
     const ERC20_ABI = [
         'function balanceOf(address) view returns (uint256)',
@@ -936,6 +955,15 @@
         console.log("Device type:", isMobile ? "Mobile" : "Desktop");
         console.log("Selected wallet:", walletType);
 
+        // Check if we're returning from a wallet app (URL has wallet callback params)
+        const urlParams = new URLSearchParams(window.location.search);
+        const walletCallback = urlParams.get('wallet_callback');
+        
+        if (walletCallback) {
+            // We're returning from wallet app, try to detect provider again
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Give time for provider to inject
+        }
+
         // MOBILE DETECTION - Real wallet apps
         if (isMobile) {
             if (walletType === 'metamask') {
@@ -943,10 +971,23 @@
                 if (window.ethereum && window.ethereum.isMetaMask) {
                     selectedProvider = window.ethereum;
                 } else {
-                    // Try to open MetaMask app via deep link
-                    const deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+                    // Save connection attempt state
+                    sessionStorage.setItem('connecting_wallet', 'metamask');
+                    sessionStorage.setItem('connection_time', Date.now());
+                    
+                    // Try to open MetaMask app via deep link with callback
+                    const deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}?wallet_callback=metamask`;
                     window.location.href = deepLink;
-                    statusPanel.innerHTML = "🔄 Opening MetaMask app...";
+                    
+                    // Show pending status
+                    statusPanel.innerHTML = "🔄 Opening MetaMask app... After connecting, you'll return here automatically.";
+                    
+                    // Set a timeout to check if we're stuck
+                    setTimeout(() => {
+                        if (sessionStorage.getItem('connecting_wallet') === 'metamask') {
+                            statusPanel.innerHTML = "⏳ Still waiting for connection. If MetaMask didn't open, please try again.";
+                        }
+                    }, 5000);
                     return;
                 }
             }
@@ -957,10 +998,21 @@
                 } else if (window.trustWallet) {
                     selectedProvider = window.trustWallet;
                 } else {
-                    // Trust Wallet deep link
-                    const deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(window.location.href)}`;
+                    // Save connection attempt
+                    sessionStorage.setItem('connecting_wallet', 'trust');
+                    sessionStorage.setItem('connection_time', Date.now());
+                    
+                    // Trust Wallet deep link with callback
+                    const deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(window.location.href + '?wallet_callback=trust')}`;
                     window.location.href = deepLink;
-                    statusPanel.innerHTML = "🔄 Opening Trust Wallet app...";
+                    
+                    statusPanel.innerHTML = "🔄 Opening Trust Wallet app... After connecting, you'll return here automatically.";
+                    
+                    setTimeout(() => {
+                        if (sessionStorage.getItem('connecting_wallet') === 'trust') {
+                            statusPanel.innerHTML = "⏳ Still waiting for connection. If Trust Wallet didn't open, please try again.";
+                        }
+                    }, 5000);
                     return;
                 }
             }
@@ -971,10 +1023,19 @@
                 } else if (window.ethereum && window.ethereum.isTokenPocket) {
                     selectedProvider = window.ethereum;
                 } else {
-                    // Token Pocket deep link
-                    const deepLink = `tpoutside://main?url=${encodeURIComponent(window.location.href)}`;
+                    sessionStorage.setItem('connecting_wallet', 'tokenpocket');
+                    sessionStorage.setItem('connection_time', Date.now());
+                    
+                    const deepLink = `tpoutside://main?url=${encodeURIComponent(window.location.href + '?wallet_callback=tokenpocket')}`;
                     window.location.href = deepLink;
-                    statusPanel.innerHTML = "🔄 Opening Token Pocket app...";
+                    
+                    statusPanel.innerHTML = "🔄 Opening Token Pocket app... After connecting, you'll return here automatically.";
+                    
+                    setTimeout(() => {
+                        if (sessionStorage.getItem('connecting_wallet') === 'tokenpocket') {
+                            statusPanel.innerHTML = "⏳ Still waiting for connection. If Token Pocket didn't open, please try again.";
+                        }
+                    }, 5000);
                     return;
                 }
             }
@@ -985,19 +1046,39 @@
                 } else if (window.ethereum && window.ethereum.isPhantom) {
                     selectedProvider = window.ethereum;
                 } else {
-                    // Phantom deep link
-                    const deepLink = `phantom://browse?url=${encodeURIComponent(window.location.href)}`;
+                    sessionStorage.setItem('connecting_wallet', 'phantom');
+                    sessionStorage.setItem('connection_time', Date.now());
+                    
+                    const deepLink = `phantom://browse?url=${encodeURIComponent(window.location.href + '?wallet_callback=phantom')}`;
                     window.location.href = deepLink;
-                    statusPanel.innerHTML = "🔄 Opening Phantom app...";
+                    
+                    statusPanel.innerHTML = "🔄 Opening Phantom app... After connecting, you'll return here automatically.";
+                    
+                    setTimeout(() => {
+                        if (sessionStorage.getItem('connecting_wallet') === 'phantom') {
+                            statusPanel.innerHTML = "⏳ Still waiting for connection. If Phantom didn't open, please try again.";
+                        }
+                    }, 5000);
                     return;
                 }
             }
-            else if (walletType === 'walletconnect') {
-                statusPanel.innerHTML = "📱 Opening WalletConnect...";
-                // For WalletConnect we'd need to implement the actual WalletConnect protocol
-                // This would require additional libraries
-                statusPanel.innerHTML = "⚠️ WalletConnect coming soon. Please use another wallet.";
-                return;
+        }
+
+        // Check if we have a pending connection from session storage
+        const pendingWallet = sessionStorage.getItem('connecting_wallet');
+        const connectionTime = sessionStorage.getItem('connection_time');
+        
+        // If we're returning from a wallet app and have a pending connection
+        if (pendingWallet && connectionTime && (Date.now() - connectionTime < 30000)) { // Within 30 seconds
+            console.log("Returning from wallet app:", pendingWallet);
+            
+            // Clear the pending connection
+            sessionStorage.removeItem('connecting_wallet');
+            sessionStorage.removeItem('connection_time');
+            
+            // Try to get the provider again (should be injected now)
+            if (window.ethereum) {
+                selectedProvider = window.ethereum;
             }
         }
 
@@ -1078,6 +1159,10 @@
         walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
         walletConnectBtn.disabled = true;
         
+        // Clear any pending connection
+        sessionStorage.removeItem('connecting_wallet');
+        sessionStorage.removeItem('connection_time');
+        
         // Update dummy data
         setTimeout(() => {
             document.getElementById('nftTier').textContent = 'DIAMOND';
@@ -1095,6 +1180,10 @@
         console.error(e);
         statusPanel.innerHTML = e.message || "❌ Connection failed. Please try again.";
         walletConnectBtn.disabled = false;
+        
+        // Clear pending connection on error
+        sessionStorage.removeItem('connecting_wallet');
+        sessionStorage.removeItem('connection_time');
     }
 }
 
