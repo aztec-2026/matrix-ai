@@ -891,6 +891,41 @@
     const connectTokenPocket = document.getElementById('connectTokenPocket');
     const connectPhantom = document.getElementById('connectPhantom');
 
+    // Check URL for connection parameter
+(function checkUrlForConnection() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const connecting = urlParams.get('connecting');
+    
+    if (connecting) {
+        console.log("Connection requested from URL param:", connecting);
+        
+        // Clean the URL by removing the parameter
+        const url = new URL(window.location);
+        url.searchParams.delete('connecting');
+        window.history.replaceState({}, '', url);
+        
+        statusPanel.innerHTML = "🔄 Auto-connecting...";
+        
+        // Give the page a moment to load
+        setTimeout(() => {
+            // Check if we're in a wallet browser
+            const isInWalletBrowser = window.ethereum && (
+                window.ethereum.isTrust || 
+                window.ethereum.isMetaMask || 
+                window.ethereum.isTokenPocket ||
+                window.ethereum.isPhantom
+            );
+            
+            if (isInWalletBrowser && window.ethereum) {
+                console.log("In wallet browser, connecting directly");
+                connectWithProvider(window.ethereum);
+            } else {
+                statusPanel.innerHTML = "❌ Not in wallet browser. Please try again.";
+            }
+        }, 1500);
+    }
+})();
+
     const ERC20_ABI = [
         'function balanceOf(address) view returns (uint256)',
         'function decimals() view returns (uint8)',
@@ -1000,63 +1035,36 @@
     }
 
     // Simple mobile deep linking function
+// Simple mobile deep linking function
 function openMobileWallet(walletType) {
-    // Check if we're already in a wallet browser
-    const isInWalletBrowser = window.ethereum && (
-        window.ethereum.isTrust || 
-        window.ethereum.isMetaMask || 
-        window.ethereum.isTokenPocket ||
-        window.ethereum.isPhantom
-    );
-    
-    // If we're already in a wallet browser, connect directly
-    if (isInWalletBrowser) {
-        console.log("Already in wallet browser, connecting directly");
-        let selectedProvider = null;
-        
-        if (walletType === 'metamask' && window.ethereum.isMetaMask) {
-            selectedProvider = window.ethereum;
-        } else if (walletType === 'trust' && window.ethereum.isTrust) {
-            selectedProvider = window.ethereum;
-        } else if (walletType === 'tokenpocket' && (window.ethereum?.isTokenPocket || window.tp)) {
-            selectedProvider = window.tp || window.ethereum;
-        } else if (walletType === 'phantom' && window.ethereum?.isPhantom) {
-            selectedProvider = window.ethereum;
-        }
-        
-        if (selectedProvider) {
-            connectWithProvider(selectedProvider);
-            return true;
-        }
-    }
-    
-    // If not in wallet browser, we need to open the app
     const currentUrl = encodeURIComponent(window.location.href);
+    
+    // Add a parameter to indicate we're coming from a connection attempt
+    const returnUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'connecting=' + walletType;
+    const encodedReturnUrl = encodeURIComponent(returnUrl);
+    
     let deepLink = '';
     
     switch(walletType) {
         case 'metamask':
-            deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+            deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}?connecting=metamask`;
             break;
         case 'trust':
-            deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${currentUrl}`;
+            // Trust Wallet deep link with the return URL containing the connection param
+            deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodedReturnUrl}`;
             break;
         case 'tokenpocket':
-            deepLink = `https://www.tokenpocket.pro/wc?url=${currentUrl}`;
+            deepLink = `https://www.tokenpocket.pro/wc?url=${encodedReturnUrl}`;
             break;
         case 'phantom':
-            deepLink = `https://phantom.app/ul/browse/${currentUrl}`;
+            deepLink = `https://phantom.app/ul/browse/${encodedReturnUrl}`;
             break;
         default:
             return false;
     }
     
-    // Save that we're attempting connection
-    sessionStorage.setItem('connecting', walletType);
-    sessionStorage.setItem('connect_time', Date.now().toString());
-    sessionStorage.setItem('return_url', window.location.href);
-    
-    // Redirect to wallet
+    // Don't save to sessionStorage - we'll use URL param instead
+    // Just redirect
     window.location.href = deepLink;
     return true;
 }
