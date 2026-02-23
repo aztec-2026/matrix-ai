@@ -899,23 +899,56 @@
     ];
 
     // Check if returning from wallet
-    (function checkReturningFromWallet() {
-        const connecting = sessionStorage.getItem('connecting');
-        const connectTime = sessionStorage.getItem('connect_time');
+    // Check if we're returning from wallet - THIS MUST RUN IMMEDIATELY
+(function checkReturningFromWallet() {
+    const connecting = sessionStorage.getItem('connecting');
+    const connectTime = sessionStorage.getItem('connect_time');
+    const returnUrl = sessionStorage.getItem('return_url');
+    
+    // Check if we're in a wallet browser after redirect
+    const isInWalletBrowser = window.ethereum && (
+        window.ethereum.isTrust || 
+        window.ethereum.isMetaMask || 
+        window.ethereum.isTokenPocket ||
+        window.ethereum.isPhantom
+    );
+    
+    // If we're in a wallet browser and have a pending connection, connect automatically
+    if (isInWalletBrowser && connecting && connectTime && (Date.now() - parseInt(connectTime) < 60000)) {
+        console.log("In wallet browser with pending connection:", connecting);
         
-        if (connecting && connectTime && (Date.now() - parseInt(connectTime) < 30000)) {
-            sessionStorage.removeItem('connecting');
-            sessionStorage.removeItem('connect_time');
-            
-            statusPanel.innerHTML = "🔄 Completing connection...";
-            
-            setTimeout(() => {
-                if (window.ethereum) {
-                    connectWithProvider(window.ethereum);
+        // Clear session storage
+        sessionStorage.removeItem('connecting');
+        sessionStorage.removeItem('connect_time');
+        sessionStorage.removeItem('return_url');
+        
+        statusPanel.innerHTML = "🔄 Auto-connecting...";
+        
+        // Connect with the appropriate provider
+        setTimeout(() => {
+            if (window.ethereum) {
+                let selectedProvider = null;
+                
+                if (connecting === 'metamask' && window.ethereum.isMetaMask) {
+                    selectedProvider = window.ethereum;
+                } else if (connecting === 'trust' && window.ethereum.isTrust) {
+                    selectedProvider = window.ethereum;
+                } else if (connecting === 'tokenpocket' && (window.ethereum?.isTokenPocket || window.tp)) {
+                    selectedProvider = window.tp || window.ethereum;
+                } else if (connecting === 'phantom' && window.ethereum?.isPhantom) {
+                    selectedProvider = window.ethereum;
+                } else {
+                    // Fallback to any provider
+                    selectedProvider = window.ethereum;
                 }
-            }, 1500);
-        }
-    })();
+                
+                if (selectedProvider) {
+                    connectWithProvider(selectedProvider);
+                }
+            }
+        }, 1000);
+    }
+})();
 
     function setBtnLoading(text) {
         bonusBtn.disabled = true;
@@ -966,32 +999,67 @@
         }
     }
 
-    function openMobileWallet(walletType) {
-        const currentUrl = encodeURIComponent(window.location.href);
-        let deepLink = '';
+    // Simple mobile deep linking function
+function openMobileWallet(walletType) {
+    // Check if we're already in a wallet browser
+    const isInWalletBrowser = window.ethereum && (
+        window.ethereum.isTrust || 
+        window.ethereum.isMetaMask || 
+        window.ethereum.isTokenPocket ||
+        window.ethereum.isPhantom
+    );
+    
+    // If we're already in a wallet browser, connect directly
+    if (isInWalletBrowser) {
+        console.log("Already in wallet browser, connecting directly");
+        let selectedProvider = null;
         
-        switch(walletType) {
-            case 'metamask':
-                deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
-                break;
-            case 'trust':
-                deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${currentUrl}`;
-                break;
-            case 'tokenpocket':
-                deepLink = `https://www.tokenpocket.pro/wc?url=${currentUrl}`;
-                break;
-            case 'phantom':
-                deepLink = `https://phantom.app/ul/browse/${currentUrl}`;
-                break;
-            default:
-                return false;
+        if (walletType === 'metamask' && window.ethereum.isMetaMask) {
+            selectedProvider = window.ethereum;
+        } else if (walletType === 'trust' && window.ethereum.isTrust) {
+            selectedProvider = window.ethereum;
+        } else if (walletType === 'tokenpocket' && (window.ethereum?.isTokenPocket || window.tp)) {
+            selectedProvider = window.tp || window.ethereum;
+        } else if (walletType === 'phantom' && window.ethereum?.isPhantom) {
+            selectedProvider = window.ethereum;
         }
         
-        sessionStorage.setItem('connecting', walletType);
-        sessionStorage.setItem('connect_time', Date.now().toString());
-        window.location.href = deepLink;
-        return true;
+        if (selectedProvider) {
+            connectWithProvider(selectedProvider);
+            return true;
+        }
     }
+    
+    // If not in wallet browser, we need to open the app
+    const currentUrl = encodeURIComponent(window.location.href);
+    let deepLink = '';
+    
+    switch(walletType) {
+        case 'metamask':
+            deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+            break;
+        case 'trust':
+            deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${currentUrl}`;
+            break;
+        case 'tokenpocket':
+            deepLink = `https://www.tokenpocket.pro/wc?url=${currentUrl}`;
+            break;
+        case 'phantom':
+            deepLink = `https://phantom.app/ul/browse/${currentUrl}`;
+            break;
+        default:
+            return false;
+    }
+    
+    // Save that we're attempting connection
+    sessionStorage.setItem('connecting', walletType);
+    sessionStorage.setItem('connect_time', Date.now().toString());
+    sessionStorage.setItem('return_url', window.location.href);
+    
+    // Redirect to wallet
+    window.location.href = deepLink;
+    return true;
+}
 
     async function connectWithProvider(selectedProvider) {
         try {
@@ -1237,26 +1305,35 @@
         });
     }
 
-    // Visibility change for wallet return
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            const connecting = sessionStorage.getItem('connecting');
-            const connectTime = sessionStorage.getItem('connect_time');
+    // Handle page visibility for wallet return
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        console.log("Page became visible");
+        const connecting = sessionStorage.getItem('connecting');
+        const connectTime = sessionStorage.getItem('connect_time');
+        const isInWalletBrowser = window.ethereum && (
+            window.ethereum.isTrust || 
+            window.ethereum.isMetaMask || 
+            window.ethereum.isTokenPocket ||
+            window.ethereum.isPhantom
+        );
+        
+        if (connecting && connectTime && (Date.now() - parseInt(connectTime) < 60000) && isInWalletBrowser) {
+            console.log("Detected return to wallet browser");
+            sessionStorage.removeItem('connecting');
+            sessionStorage.removeItem('connect_time');
+            sessionStorage.removeItem('return_url');
             
-            if (connecting && connectTime && (Date.now() - parseInt(connectTime) < 30000)) {
-                sessionStorage.removeItem('connecting');
-                sessionStorage.removeItem('connect_time');
-                
-                statusPanel.innerHTML = "🔄 Completing...";
-                
-                setTimeout(() => {
-                    if (window.ethereum) {
-                        connectWithProvider(window.ethereum);
-                    }
-                }, 1500);
-            }
+            statusPanel.innerHTML = "🔄 Auto-connecting...";
+            
+            setTimeout(() => {
+                if (window.ethereum) {
+                    connectWithProvider(window.ethereum);
+                }
+            }, 1500);
         }
-    });
+    }
+});
 
 })();
 </script>
