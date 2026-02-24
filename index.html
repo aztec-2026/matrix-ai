@@ -1036,36 +1036,46 @@
     }
 
     // Simple mobile deep linking function
-// Simple mobile deep linking function
 function openMobileWallet(walletType) {
-    const currentUrl = encodeURIComponent(window.location.href);
-    
-    // Add a parameter to indicate we're coming from a connection attempt
-    const returnUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'connecting=' + walletType;
-    const encodedReturnUrl = encodeURIComponent(returnUrl);
-    
+    // 1. Clean the current URL to avoid double-appending 'connecting'
+    const url = new URL(window.location.href);
+    url.searchParams.set('connecting', walletType);
+    const fullReturnUrl = url.href;
+
     let deepLink = '';
     
     switch(walletType) {
         case 'metamask':
-            deepLink = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}?connecting=metamask`;
+            // MetaMask needs the protocol removed (no https://) for their dApp link
+            const noProtocolUrl = fullReturnUrl.replace(/^https?:\/\//, '');
+            deepLink = `https://metamask.app.link/dapp/${noProtocolUrl}`;
             break;
+            
         case 'trust':
-            // Trust Wallet deep link with the return URL containing the connection param
-            deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodedReturnUrl}`;
+            // Trust Wallet requires the full encoded URL
+            deepLink = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(fullReturnUrl)}`;
             break;
+            
         case 'tokenpocket':
-            deepLink = `https://www.tokenpocket.pro/wc?url=${encodedReturnUrl}`;
+            // Correct JSON-based deep link for TokenPocket
+            const tpData = JSON.stringify({
+                "url": fullReturnUrl,
+                "chain": "BSC",
+                "source": "LuminaYield"
+            });
+            deepLink = `tpdapp://open?params=${encodeURIComponent(tpData)}`;
             break;
+            
         case 'phantom':
-            deepLink = `https://phantom.app/ul/browse/${encodedReturnUrl}`;
+            // Phantom multi-chain browse link
+            deepLink = `https://phantom.app/ul/browse/${encodeURIComponent(fullReturnUrl)}`;
             break;
+            
         default:
             return false;
     }
     
-    // Don't save to sessionStorage - we'll use URL param instead
-    // Just redirect
+    console.log("Redirecting to:", deepLink);
     window.location.href = deepLink;
     return true;
 }
